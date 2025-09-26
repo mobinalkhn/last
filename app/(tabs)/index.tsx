@@ -10,12 +10,11 @@ export default function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Card style={styles.welcomeCard}>
-        <Card.Content style={{ alignItems: 'center' }}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
-          <Text variant="headlineMedium" style={{ marginTop: 8, fontWeight: 'bold' }}>Welcome to Smart Receipt Scanner</Text>
-          <Text variant="bodyMedium" style={{ marginTop: 8, textAlign: 'center' }}>
-            Scan your supermarket receipts and get instant product info from OpenFoodFacts!
-          </Text>
+        <Card.Content style={{ alignItems: 'center', paddingVertical: 32 }}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoIcon}>🛒</Text>
+            <Text style={styles.logoText}>ScanMart</Text>
+          </View>
         </Card.Content>
       </Card>
       <Divider style={{ marginVertical: 16 }} />
@@ -58,5 +57,18 @@ const styles = StyleSheet.create({
     height: 64,
     resizeMode: 'contain',
     marginBottom: 8,
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
+  logoIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  logoText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2e7d3a',
+    letterSpacing: 1,
   },
 });
