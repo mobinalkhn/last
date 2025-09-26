@@ -4,8 +4,6 @@ import { Button, Text, TextInput, Card, ActivityIndicator } from 'react-native-p
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 
-const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
-
 type ReceiptScannerProps = {
   onItemsExtracted?: (items: string[]) => void;
 };
@@ -33,6 +31,7 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
     setLoading(true);
     setError('');
     setItems([]);
+    
     try {
       // Convert image to base64
       const response = await fetch(image);
@@ -40,31 +39,45 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
-        if (typeof reader.result === 'string' && reader.result) {
-          const base64 = reader.result.split(',')[1];
-          // Google Vision API request
-          const visionRes = await axios.post(
-            `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-            {
-              requests: [
-                {
-                  image: { content: base64 },
-                  features: [{ type: 'TEXT_DETECTION' }],
+        try {
+          if (typeof reader.result === 'string' && reader.result) {
+            const base64 = reader.result.split(',')[1];
+            // OCR.space API request
+            const formData = new FormData();
+            formData.append('base64Image', `data:image/png;base64,${base64}`);
+            formData.append('language', 'eng');
+            formData.append('isOverlayRequired', 'false');
+            
+            const ocrRes = await axios.post(
+              'https://api.ocr.space/parse/image',
+              formData,
+              {
+                headers: {
+                  apikey: 'K87471371288957', // Your OCR.space API key
+                  'Content-Type': 'multipart/form-data',
                 },
-              ],
+              }
+            );
+            
+            if (ocrRes.data?.ParsedResults?.[0]?.ParsedText) {
+              const text = ocrRes.data.ParsedResults[0].ParsedText;
+              const lines = text.split('\n').filter((l: string) => l.trim().length > 2 && /[a-zA-Z0-9]/.test(l));
+              setItems(lines);
+              if (onItemsExtracted) onItemsExtracted(lines);
+            } else {
+              setError('No text found in the image or OCR failed.');
             }
-          );
-          const text = visionRes.data.responses[0]?.fullTextAnnotation?.text || '';
-          // Extract items (simple line split, can be improved)
-          const lines = text.split('\n').filter((l: string) => l.length > 2 && /[a-zA-Z0-9]/.test(l));
-          setItems(lines);
-          if (onItemsExtracted) onItemsExtracted(lines);
-        } else {
-          setError('Error reading image.');
+          } else {
+            setError('Error reading image.');
+          }
+        } catch (apiError) {
+          console.error('OCR API Error:', apiError);
+          setError('Error connecting to OCR service. Please check your API key.');
         }
       };
     } catch (e) {
-      setError('Error scanning receipt or connecting to Google Vision API');
+      console.error('General Error:', e);
+      setError('Error processing image or connecting to OCR service');
     } finally {
       setLoading(false);
     }

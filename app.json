@@ -25,6 +25,9 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "extra": {
+      "GOOGLE_VISION_API_KEY": "AIzaSyCSOHiqFDsz1DesPEN_n2NYjMY4xVXYNfc"
+    },
     "plugins": [
       "expo-router",
       [
