@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Expo React Native MVP App
 
 ## Features
@@ -47,3 +48,7 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+=======
+# last
+for shopping
+>>>>>>> a066038f162692cd7f31594972a3c9699e9f7133
