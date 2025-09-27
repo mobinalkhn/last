@@ -169,26 +169,43 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
             const base64 = reader.result.split(',')[1];
             console.log('Base64 length:', base64.length);
             
-            // Test without OCR first - just show dummy data
-            const dummyItems = [
-              'Test Item 1 - Milk',
-              'Test Item 2 - Bread', 
-              'Test Item 3 - Eggs',
-              'Base64 length: ' + base64.substring(0, 50) + '...'
-            ];
+            // OCR.space API request
+            const formData = new FormData();
+            formData.append('base64Image', `data:image/png;base64,${base64}`);
+            formData.append('language', 'eng');
+            formData.append('isOverlayRequired', 'false');
             
-            setItems(dummyItems);
-            if (onItemsExtracted) onItemsExtracted(dummyItems);
+            const ocrRes = await axios.post(
+              'https://api.ocr.space/parse/image',
+              formData,
+              {
+                headers: {
+                  apikey: 'K87471371288957', // Your OCR.space API key
+                  'Content-Type': 'multipart/form-data',
+                },
+              }
+            );
             
-            console.log('Dummy items set');
+            if (ocrRes.data?.ParsedResults?.[0]?.ParsedText) {
+              const text = ocrRes.data.ParsedResults[0].ParsedText;
+              const lines = text.split('\n').filter((l: string) => l.trim().length > 2 && /[a-zA-Z0-9]/.test(l));
+              setItems(lines);
+              if (onItemsExtracted) onItemsExtracted(lines);
+              console.log('OCR completed successfully');
+            } else {
+              setError('No text found in the image or OCR failed.');
+              console.log('No OCR results');
+            }
             
           } else {
             setError('Error reading image.');
             console.log('FileReader result is not string');
           }
         } catch (apiError) {
-          console.error('Processing Error:', apiError);
-          setError('Error processing: ' + String(apiError));
+          console.error('OCR API Error:', apiError);
+          setError('Error connecting to OCR service: ' + String(apiError));
+        } finally {
+          setLoading(false);
         }
       };
       
@@ -207,7 +224,7 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
     // Set timeout to ensure loading stops
     setTimeout(() => {
       setLoading(false);
-    }, 10000);
+    }, 15000);
   };
 
   return (
