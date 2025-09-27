@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Button, Text, Card, ActivityIndicator } from 'react-native-paper';
 import axios from 'axios';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Card, Text } from 'react-native-paper';
 
 interface Props {
   items: string[];

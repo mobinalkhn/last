@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet, Image } from 'react-native';
-import { Card, Text, Divider } from 'react-native-paper';
-import ReceiptScanner from '../../components/ReceiptScanner';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Card, Divider, Text } from 'react-native-paper';
 import ProductDetails from '../../components/ProductDetails';
+import ReceiptScanner from '../../components/ReceiptScanner';
 
 export default function HomeScreen() {
   const [items, setItems] = useState<string[]>([]);

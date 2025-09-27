@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { Button, Text, TextInput, Card, ActivityIndicator } from 'react-native-paper';
+﻿import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import axios from 'axios';
+import React, { useState } from 'react';
+import { Image, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, Button, Card, Text } from 'react-native-paper';
 
 type ReceiptScannerProps = {
   onItemsExtracted?: (items: string[]) => void;
@@ -17,7 +17,7 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
   const pickImage = async () => {
     setError('');
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 1,
     });
@@ -33,54 +33,63 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
     setItems([]);
     
     try {
+      console.log('Starting scan process...');
+      
       // Convert image to base64
       const response = await fetch(image);
+      console.log('Fetch response:', response.ok);
+      
       const blob = await response.blob();
+      console.log('Blob created, size:', blob.size);
+      
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
         try {
+          console.log('FileReader completed');
           if (typeof reader.result === 'string' && reader.result) {
             const base64 = reader.result.split(',')[1];
-            // OCR.space API request
-            const formData = new FormData();
-            formData.append('base64Image', `data:image/png;base64,${base64}`);
-            formData.append('language', 'eng');
-            formData.append('isOverlayRequired', 'false');
+            console.log('Base64 length:', base64.length);
             
-            const ocrRes = await axios.post(
-              'https://api.ocr.space/parse/image',
-              formData,
-              {
-                headers: {
-                  apikey: 'K87471371288957', // Your OCR.space API key
-                  'Content-Type': 'multipart/form-data',
-                },
-              }
-            );
+            // Test without OCR first - just show dummy data
+            const dummyItems = [
+              'Test Item 1 - Milk',
+              'Test Item 2 - Bread', 
+              'Test Item 3 - Eggs',
+              'Base64 length: ' + base64.substring(0, 50) + '...'
+            ];
             
-            if (ocrRes.data?.ParsedResults?.[0]?.ParsedText) {
-              const text = ocrRes.data.ParsedResults[0].ParsedText;
-              const lines = text.split('\n').filter((l: string) => l.trim().length > 2 && /[a-zA-Z0-9]/.test(l));
-              setItems(lines);
-              if (onItemsExtracted) onItemsExtracted(lines);
-            } else {
-              setError('No text found in the image or OCR failed.');
-            }
+            setItems(dummyItems);
+            if (onItemsExtracted) onItemsExtracted(dummyItems);
+            
+            console.log('Dummy items set');
+            
           } else {
             setError('Error reading image.');
+            console.log('FileReader result is not string');
           }
         } catch (apiError) {
-          console.error('OCR API Error:', apiError);
-          setError('Error connecting to OCR service. Please check your API key.');
+          console.error('Processing Error:', apiError);
+          setError('Error processing: ' + String(apiError));
         }
       };
+      
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        setError('FileReader error');
+        setLoading(false);
+      };
+      
     } catch (e) {
       console.error('General Error:', e);
-      setError('Error processing image or connecting to OCR service');
-    } finally {
+      setError('Error processing image: ' + String(e));
       setLoading(false);
     }
+    
+    // Set timeout to ensure loading stops
+    setTimeout(() => {
+      setLoading(false);
+    }, 10000);
   };
 
   return (
@@ -122,5 +131,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginVertical: 16,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
 });

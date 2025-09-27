@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "lasttry",
+    "name": "ScanMarket",
     "slug": "lasttry",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "lasttry",
+    "scheme": "scanmarket",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -19,14 +19,19 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mobinalkhn.scanmarket"
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "extra": {
-      "GOOGLE_VISION_API_KEY": "AIzaSyCSOHiqFDsz1DesPEN_n2NYjMY4xVXYNfc"
+      "GOOGLE_VISION_API_KEY": "AIzaSyCSOHiqFDsz1DesPEN_n2NYjMY4xVXYNfc",
+      "router": {},
+      "eas": {
+        "projectId": "b4ac3cc0-6c8d-4ac6-857e-e54d1eaa75eb"
+      }
     },
     "plugins": [
       "expo-router",
@@ -46,6 +51,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "owner": "mobinalkhn"
   }
 }
