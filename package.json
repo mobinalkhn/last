@@ -8,8 +8,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "npx expo export -p web",
-    "deploy": "gh-pages -d dist --dotfiles",
+    "build:web": "set EXPO_USE_STATIC=true && npx expo export -p web --output-dir dist",
+    "deploy:gh": "gh-pages -d dist --dotfiles",
+    "deploy": "npm run build:web && npm run deploy:gh",
     "predeploy": "npm run build:web",
     "lint": "expo lint"
   },
@@ -51,6 +52,7 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "gh-pages": "^6.3.0",
+    "netlify-cli": "^23.8.0",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -1,32 +1,59 @@
-﻿import axios from 'axios';
+﻿/**
+ * ReceiptScanner Component
+ * 
+ * This is the core component of ScanMarket that handles:
+ * 1. Image selection (camera or gallery) with platform-specific handling
+ * 2. OCR processing using OCR.space API
+ * 3. Text extraction and parsing to identify products
+ * 4. Error handling and loading states
+ * 
+ * Features:
+ * - Cross-platform support (mobile & web)
+ * - Web camera integration with live preview
+ * - Persian/Farsi UI text for better UX
+ * - Automatic product name extraction from receipt text
+ * - Progress indicators and error messages
+ */
+
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Image, ScrollView, StyleSheet, Platform } from 'react-native';
 import { ActivityIndicator, Button, Card, Text } from 'react-native-paper';
 
+// Type definition for component props
 type ReceiptScannerProps = {
-  onItemsExtracted?: (items: string[]) => void;
+  onItemsExtracted?: (items: string[]) => void; // Callback when items are successfully extracted
 };
 
 export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps) {
-  const [image, setImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<string[]>([]);
-  const [error, setError] = useState('');
+  // Component state management
+  const [image, setImage] = useState<string | null>(null);     // Selected/captured image URI
+  const [loading, setLoading] = useState(false);               // Loading state for OCR processing
+  const [items, setItems] = useState<string[]>([]);           // Extracted items from receipt
+  const [error, setError] = useState('');                     // Error messages
 
+  /**
+   * Image Selection Function
+   * Handles both mobile and web platforms with different approaches:
+   * - Mobile: Uses Expo ImagePicker for camera/gallery
+   * - Web: Provides camera access via MediaDevices API or file upload
+   */
   const pickImage = async () => {
-    setError('');
+    setError(''); // Clear any previous errors
     
+    // Web-specific image handling
     if (Platform.OS === 'web') {
-      // For web, show options for camera or gallery
+      // Show options for camera or gallery
       const useCamera = window.confirm('آیا می‌خواهید از دوربین استفاده کنید؟ (Cancel برای انتخاب فایل)');
       
+      // Camera access for web browsers
       if (useCamera && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
-          // Request camera access
+          // Request camera access with back-facing camera preference
           const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
-              facingMode: 'environment' // Use back camera if available
+              facingMode: 'environment' // Use back camera if available (better for documents)
             } 
           });
           
@@ -140,70 +167,96 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
         };
         reader.readAsDataURL(file);
       }
-    };
-    input.click();
   };
 
+  /**
+   * OCR Processing Function
+   * 
+   * This function handles the core OCR (Optical Character Recognition) process:
+   * 1. Converts selected image to base64 format
+   * 2. Sends to OCR.space API for text extraction
+   * 3. Processes extracted text to identify product names
+   * 4. Updates state with found items
+   * 
+   * Uses OCR.space free API with the following features:
+   * - Supports multiple image formats (JPEG, PNG, PDF, etc.)
+   * - Persian/Arabic text recognition
+   * - Base64 image upload
+   * - Error handling for API failures
+   */
   const scanReceipt = async () => {
-    if (!image) return;
+    if (!image) return; // Exit if no image selected
+    
+    // Set loading state and clear previous results
     setLoading(true);
     setError('');
     setItems([]);
     
     try {
-      console.log('Starting scan process...');
+      console.log('Starting OCR scan process...');
       
-      // Convert image to base64
+      // Step 1: Convert image to base64 format for API upload
       const response = await fetch(image);
-      console.log('Fetch response:', response.ok);
+      console.log('Image fetch response:', response.ok);
       
       const blob = await response.blob();
-      console.log('Blob created, size:', blob.size);
+      console.log('Blob created, size:', blob.size, 'bytes');
       
+      // Use FileReader to convert blob to base64
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
         try {
-          console.log('FileReader completed');
+          console.log('FileReader conversion completed');
           if (typeof reader.result === 'string' && reader.result) {
-            const base64 = reader.result.split(',')[1];
-            console.log('Base64 length:', base64.length);
+            const base64 = reader.result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+            console.log('Base64 conversion successful, length:', base64.length);
             
-            // OCR.space API request
+            // Step 2: Prepare OCR.space API request
             const formData = new FormData();
             formData.append('base64Image', `data:image/png;base64,${base64}`);
             formData.append('language', 'eng');
             formData.append('isOverlayRequired', 'false');
             
+            // Step 3: Send OCR request to OCR.space API
             const ocrRes = await axios.post(
               'https://api.ocr.space/parse/image',
               formData,
               {
                 headers: {
-                  apikey: 'K87471371288957', // Your OCR.space API key
+                  apikey: 'K87471371288957', // OCR.space free API key
                   'Content-Type': 'multipart/form-data',
                 },
               }
             );
             
+            // Step 4: Process OCR results
             if (ocrRes.data?.ParsedResults?.[0]?.ParsedText) {
               const text = ocrRes.data.ParsedResults[0].ParsedText;
-              const lines = text.split('\n').filter((l: string) => l.trim().length > 2 && /[a-zA-Z0-9]/.test(l));
+              console.log('OCR extraction successful, extracted text length:', text.length);
+              
+              // Step 5: Parse text to extract product lines
+              // Filter out short lines and lines without alphanumeric characters
+              const lines = text.split('\n').filter((l: string) => 
+                l.trim().length > 2 && /[a-zA-Z0-9]/.test(l)
+              );
+              
+              // Update state with extracted items
               setItems(lines);
-              if (onItemsExtracted) onItemsExtracted(lines);
-              console.log('OCR completed successfully');
+              if (onItemsExtracted) onItemsExtracted(lines); // Notify parent component
+              console.log('OCR completed successfully, found', lines.length, 'items');
             } else {
-              setError('No text found in the image or OCR failed.');
-              console.log('No OCR results');
+              setError('متن قابل خواندنی در تصویر یافت نشد. لطفاً تصویری با کیفیت بهتر امتحان کنید.');
+              console.log('No OCR results returned from API');
             }
             
           } else {
-            setError('Error reading image.');
-            console.log('FileReader result is not string');
+            setError('خطا در خواندن تصویر. لطفاً دوباره امتحان کنید.');
+            console.log('FileReader result is not a valid string');
           }
         } catch (apiError) {
           console.error('OCR API Error:', apiError);
-          setError('Error connecting to OCR service: ' + String(apiError));
+          setError('خطا در اتصال به سرویس OCR: ' + String(apiError));
         } finally {
           setLoading(false);
         }
