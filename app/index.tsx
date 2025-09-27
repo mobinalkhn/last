@@ -25,7 +25,7 @@ export default function HomeScreen() {
       <Card style={styles.welcomeCard}>
         <Card.Content style={{ alignItems: 'center', paddingVertical: 32 }}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>Receipt Scanner</Text>
+            <Text style={styles.logoText}>ScanMarket</Text>
           </View>
         </Card.Content>
       </Card>
@@ -35,7 +35,7 @@ export default function HomeScreen() {
       
       {/* Step 1: Receipt Scanning Section */}
       <Card style={styles.sectionCard}>
-        <Card.Title title="Upload Receipt" />
+        <Card.Title title="Step 1: Upload or Take a Photo of Your Receipt" />
         <Card.Content>
           {/* Main receipt scanner component */}
           <ReceiptScanner onItemsExtracted={setItems} />
@@ -44,7 +44,7 @@ export default function HomeScreen() {
       
       {/* Step 2: Product Details Section */}
       <Card style={styles.sectionCard}>
-        <Card.Title title="Extracted Items" />
+        <Card.Title title="Step 2: View and Explore Your Items" />
         <Card.Content>
           {/* Product details component that shows extracted items */}
           <ProductDetails items={items} />
@@ -91,6 +91,6 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1976d2', // Simple blue color
+    color: '#6750A4', // Material Design purple
   },
 });

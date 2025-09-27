@@ -43,7 +43,7 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
             canvas.height = video.videoHeight;
             
             const captureBtn = document.createElement('button');
-            captureBtn.innerText = 'Capture';
+            captureBtn.innerText = 'Take Photo';
             captureBtn.onclick = () => {
               if (context) {
                 context.drawImage(video, 0, 0);
@@ -168,13 +168,13 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text variant="titleLarge" style={{ marginBottom: 16 }}>Receipt Scanner</Text>
+      <Text variant="titleLarge" style={{ marginBottom: 16 }}>Scan Supermarket Receipt</Text>
       <Button mode="contained" onPress={pickImage} style={{ marginBottom: 16 }}>
-        Select Image
+        Select Receipt Image
       </Button>
       {image && <Image source={{ uri: image }} style={styles.image} />}
       <Button mode="contained" onPress={scanReceipt} disabled={!image || loading} style={{ marginVertical: 16 }}>
-        {loading ? 'Processing...' : 'Extract Text'}
+        {loading ? 'Scanning...' : 'Scan and Extract Items'}
       </Button>
       {error ? <Text style={{ color: 'red' }}>{error}</Text> : null}
       {items.length > 0 && (
