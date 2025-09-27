@@ -1,7 +1,7 @@
 ﻿import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet } from 'react-native';
+import { Image, ScrollView, StyleSheet, Platform } from 'react-native';
 import { ActivityIndicator, Button, Card, Text } from 'react-native-paper';
 
 type ReceiptScannerProps = {
@@ -16,14 +16,132 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
 
   const pickImage = async () => {
     setError('');
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      setImage(result.assets[0].uri as string);
+    
+    if (Platform.OS === 'web') {
+      // For web, show options for camera or gallery
+      const useCamera = window.confirm('آیا می‌خواهید از دوربین استفاده کنید؟ (Cancel برای انتخاب فایل)');
+      
+      if (useCamera && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          // Request camera access
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: 'environment' // Use back camera if available
+            } 
+          });
+          
+          // Create video element and canvas for capture
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.autoplay = true;
+          video.style.position = 'fixed';
+          video.style.top = '0';
+          video.style.left = '0';
+          video.style.width = '100vw';
+          video.style.height = '100vh';
+          video.style.zIndex = '9999';
+          video.style.objectFit = 'cover';
+          
+          // Create capture button
+          const captureBtn = document.createElement('button');
+          captureBtn.innerText = 'عکس بگیر 📸';
+          captureBtn.style.position = 'fixed';
+          captureBtn.style.bottom = '50px';
+          captureBtn.style.left = '50%';
+          captureBtn.style.transform = 'translateX(-50%)';
+          captureBtn.style.padding = '15px 25px';
+          captureBtn.style.fontSize = '18px';
+          captureBtn.style.background = '#4CAF50';
+          captureBtn.style.color = 'white';
+          captureBtn.style.border = 'none';
+          captureBtn.style.borderRadius = '10px';
+          captureBtn.style.cursor = 'pointer';
+          captureBtn.style.zIndex = '10000';
+          
+          // Create close button
+          const closeBtn = document.createElement('button');
+          closeBtn.innerText = '✖';
+          closeBtn.style.position = 'fixed';
+          closeBtn.style.top = '20px';
+          closeBtn.style.right = '20px';
+          closeBtn.style.padding = '10px';
+          closeBtn.style.fontSize = '20px';
+          closeBtn.style.background = '#f44336';
+          closeBtn.style.color = 'white';
+          closeBtn.style.border = 'none';
+          closeBtn.style.borderRadius = '50%';
+          closeBtn.style.cursor = 'pointer';
+          closeBtn.style.zIndex = '10000';
+          
+          document.body.appendChild(video);
+          document.body.appendChild(captureBtn);
+          document.body.appendChild(closeBtn);
+          
+          const cleanup = () => {
+            stream.getTracks().forEach(track => track.stop());
+            document.body.removeChild(video);
+            document.body.removeChild(captureBtn);
+            document.body.removeChild(closeBtn);
+          };
+          
+          captureBtn.onclick = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx!.drawImage(video, 0, 0);
+            const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+            setImage(dataURL);
+            cleanup();
+          };
+          
+          closeBtn.onclick = cleanup;
+          
+        } catch (error) {
+          console.error('Camera access error:', error);
+          setError('دسترسی به دوربین امکان‌پذیر نیست. از انتخاب فایل استفاده کنید.');
+          // Fallback to file picker
+          pickFromGallery();
+        }
+      } else {
+        // Use file picker
+        pickFromGallery();
+      }
+    } else {
+      // For mobile, show action sheet
+      const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (result.granted === false) {
+        setError('دسترسی به گالری لازم است!');
+        return;
+      }
+      
+      let imageResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 1,
+      });
+      
+      if (!imageResult.canceled) {
+        setImage(imageResult.assets[0].uri);
+      }
     }
+  };
+  
+  const pickFromGallery = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (event: any) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImage(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
   };
 
   const scanReceipt = async () => {
