@@ -25,6 +25,7 @@ export default function HomeScreen() {
       <Card style={styles.welcomeCard}>
         <Card.Content style={{ alignItems: 'center', paddingVertical: 32 }}>
           <View style={styles.logoContainer}>
+            <Text style={styles.logoIcon}>🛒</Text>
             <Text style={styles.logoText}>ScanMarket</Text>
           </View>
         </Card.Content>
@@ -85,6 +86,12 @@ const styles = StyleSheet.create({
   // Container for logo elements
   logoContainer: {
     alignItems: 'center',
+  },
+  
+  // Shopping cart emoji icon
+  logoIcon: {
+    fontSize: 48,
+    marginBottom: 8,
   },
   
   // App name text styling
