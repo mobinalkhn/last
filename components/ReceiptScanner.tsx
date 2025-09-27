@@ -20,79 +20,132 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
   const [error, setError] = useState('');
   const [isAutoScanning, setIsAutoScanning] = useState(false);
 
-  // Auto-detection function
+  // Fast visual receipt detection
+  const detectReceiptVisually = (canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, video: HTMLVideoElement): boolean => {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    let whitePixels = 0;
+    let totalPixels = 0;
+    let textLikeRegions = 0;
+    
+    // Sample every 4th pixel for speed
+    for (let i = 0; i < data.length; i += 16) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      
+      // Calculate brightness
+      const brightness = (r + g + b) / 3;
+      totalPixels++;
+      
+      // Count white/light pixels (potential receipt background)
+      if (brightness > 200) whitePixels++;
+      
+      // Look for text-like patterns (dark on light)
+      if (brightness < 100 && i > 0) {
+        const prevBrightness = (data[i-16] + data[i-15] + data[i-14]) / 3;
+        if (prevBrightness > 150) textLikeRegions++;
+      }
+    }
+    
+    const whiteRatio = whitePixels / totalPixels;
+    const textDensity = textLikeRegions / totalPixels;
+    
+    // Receipt detection criteria: mostly white background with good text density
+    return whiteRatio > 0.4 && textDensity > 0.05;
+  };
+
+  // Fast OCR-based receipt detection
   const analyzeFrame = async (canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, video: HTMLVideoElement) => {
-    if (!context || isAutoScanning) return;
+    if (!context || isAutoScanning) return false;
+    
+    // First check visually - this is instant
+    const visualMatch = detectReceiptVisually(canvas, context, video);
+    if (!visualMatch) return false;
     
     setIsAutoScanning(true);
     try {
-      // Capture current frame
+      // Capture current frame for OCR
       context.drawImage(video, 0, 0);
       
-      // Convert to blob for OCR analysis
       const blob = await new Promise<Blob | null>(resolve => {
-        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+        canvas.toBlob(resolve, 'image/jpeg', 0.6); // Lower quality for speed
       });
       
-      if (!blob) return;
+      if (!blob) {
+        setIsAutoScanning(false);
+        return false;
+      }
       
-      // Quick OCR analysis
+      // Quick OCR check
       const reader = new FileReader();
       reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        try {
-          if (typeof reader.result === 'string' && reader.result) {
-            const base64 = reader.result.split(',')[1];
-            
-            const formData = new FormData();
-            formData.append('base64Image', `data:image/jpeg;base64,${base64}`);
-            formData.append('language', 'eng');
-            formData.append('isOverlayRequired', 'false');
-            
-            const ocrRes = await axios.post(
-              'https://api.ocr.space/parse/image',
-              formData,
-              {
-                headers: {
-                  apikey: 'K87471371288957',
-                  'Content-Type': 'multipart/form-data',
-                },
-                timeout: 5000 // Quick timeout for auto-scan
-              }
-            );
-            
-            if (ocrRes.data?.ParsedResults?.[0]?.ParsedText) {
-              const text = ocrRes.data.ParsedResults[0].ParsedText.toLowerCase();
+      
+      return new Promise((resolve) => {
+        reader.onloadend = async () => {
+          try {
+            if (typeof reader.result === 'string' && reader.result) {
+              const base64 = reader.result.split(',')[1];
               
-              // Look for receipt indicators
-              const receiptKeywords = ['total', 'receipt', 'invoice', 'price', '$', 'tax', 'subtotal', 'amount', 'date'];
-              const foundKeywords = receiptKeywords.filter(keyword => text.includes(keyword));
+              const formData = new FormData();
+              formData.append('base64Image', `data:image/jpeg;base64,${base64}`);
+              formData.append('language', 'eng');
+              formData.append('isOverlayRequired', 'false');
               
-              // Auto-capture if we find enough receipt indicators
-              if (foundKeywords.length >= 2) {
-                const finalBlob = await new Promise<Blob | null>(resolve => {
-                  canvas.toBlob(resolve, 'image/jpeg', 1.0);
-                });
+              const ocrRes = await axios.post(
+                'https://api.ocr.space/parse/image',
+                formData,
+                {
+                  headers: {
+                    apikey: 'K87471371288957',
+                    'Content-Type': 'multipart/form-data',
+                  },
+                  timeout: 3000 // Faster timeout
+                }
+              );
+              
+              if (ocrRes.data?.ParsedResults?.[0]?.ParsedText) {
+                const text = ocrRes.data.ParsedResults[0].ParsedText.toLowerCase();
                 
-                if (finalBlob) {
-                  const url = URL.createObjectURL(finalBlob);
-                  setImage(url);
-                  setIsAutoScanning(false);
-                  return true; // Successfully auto-captured
+                // Enhanced receipt detection
+                const strongIndicators = ['total', 'subtotal', 'receipt', 'invoice'];
+                const weakIndicators = ['price', '$', 'tax', 'amount', 'date', 'store', 'shop'];
+                
+                const strongMatches = strongIndicators.filter(word => text.includes(word));
+                const weakMatches = weakIndicators.filter(word => text.includes(word));
+                
+                // Auto-capture if we have strong indicators or multiple weak ones
+                if (strongMatches.length >= 1 || weakMatches.length >= 3) {
+                  // Capture high-quality final image
+                  context.drawImage(video, 0, 0);
+                  const finalBlob = await new Promise<Blob | null>(resolve => {
+                    canvas.toBlob(resolve, 'image/jpeg', 0.9);
+                  });
+                  
+                  if (finalBlob) {
+                    const url = URL.createObjectURL(finalBlob);
+                    setImage(url);
+                    setIsAutoScanning(false);
+                    resolve(true);
+                    return;
+                  }
                 }
               }
             }
+          } catch (error) {
+            console.log('Auto-scan analysis failed:', error);
           }
-        } catch (error) {
-          console.log('Auto-scan analysis failed:', error);
-        }
-        setIsAutoScanning(false);
-      };
+          setIsAutoScanning(false);
+          resolve(false);
+        };
+      });
     } catch (error) {
       console.log('Frame analysis error:', error);
       setIsAutoScanning(false);
+      return false;
     }
-    return false;
   };
 
   const pickImage = async () => {
@@ -155,30 +208,58 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
             container.appendChild(closeBtn);
             document.body.appendChild(container);
             
-            // Auto-scanning interval
-            let autoScanInterval: any;
+            // Real-time auto-scanning system
+            let scanFrame: any;
             let scanCount = 0;
+            let lastScanTime = 0;
+            let isProcessing = false;
             
-            const startAutoScan = () => {
-              autoScanInterval = setInterval(async () => {
+            const realtimeScan = async () => {
+              const now = Date.now();
+              
+              // Limit OCR calls to prevent overwhelming the API
+              if (now - lastScanTime < 1000 || isProcessing) {
+                scanFrame = requestAnimationFrame(realtimeScan);
+                return;
+              }
+              
+              // Quick visual check first (instant)
+              const visualMatch = detectReceiptVisually(canvas, context!, video);
+              
+              if (visualMatch && !isProcessing) {
                 scanCount++;
-                statusText.innerText = `Auto-scanning... (${scanCount} attempts)`;
+                statusText.innerText = `Receipt detected! Verifying... (${scanCount})`;
+                
+                isProcessing = true;
+                lastScanTime = now;
                 
                 const success = await analyzeFrame(canvas, context!, video);
+                
                 if (success) {
-                  statusText.innerText = 'Receipt detected! Processing...';
-                  clearInterval(autoScanInterval);
+                  statusText.innerText = '✅ Receipt captured automatically!';
+                  cancelAnimationFrame(scanFrame);
                   setTimeout(() => {
                     cleanup();
-                  }, 2000);
+                  }, 1500);
+                  return;
                 }
-              }, 3000); // Scan every 3 seconds
+                
+                isProcessing = false;
+                statusText.innerText = 'Looking for receipt... Move closer or adjust angle';
+              } else {
+                statusText.innerText = 'Point camera at receipt - Scanning...';
+              }
+              
+              // Continue scanning
+              scanFrame = requestAnimationFrame(realtimeScan);
             };
             
             const cleanup = () => {
-              if (autoScanInterval) clearInterval(autoScanInterval);
+              if (scanFrame) cancelAnimationFrame(scanFrame);
               stream.getTracks().forEach(track => track.stop());
-              document.body.removeChild(container);
+              if (document.body.contains(container)) {
+                document.body.removeChild(container);
+              }
             };
             
             // Manual capture button
@@ -198,8 +279,10 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
             // Close button
             closeBtn.onclick = cleanup;
             
-            // Start auto-scanning after 2 seconds
-            setTimeout(startAutoScan, 2000);
+            // Start real-time scanning immediately
+            setTimeout(() => {
+              realtimeScan();
+            }, 1000);
           };
         } catch (cameraError) {
           console.error('Camera error:', cameraError);
