@@ -47,7 +47,7 @@ export default function ProductDetails({ items }: Props) {
   return (
     <View style={styles.container}>
       <Button mode="contained" onPress={fetchDetails} disabled={loading || items.length === 0}>
-        Fetch Item Details
+        Get Details
       </Button>
       {loading && <ActivityIndicator animating size="large" style={{ marginTop: 16 }} />}
       {error ? <Text style={{ color: 'red' }}>{error}</Text> : null}
