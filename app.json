@@ -25,7 +25,8 @@
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "publicPath": "/last/"
     },
     "extra": {
       "GOOGLE_VISION_API_KEY": "AIzaSyCSOHiqFDsz1DesPEN_n2NYjMY4xVXYNfc",
