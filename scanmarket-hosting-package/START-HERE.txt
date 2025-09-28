@@ -1,0 +1,30 @@
+🚀 ScanMarket - Quick Start Guide
+
+📂 WHAT TO UPLOAD:
+- Upload ALL files from this ZIP to your web hosting root folder
+
+🌐 HOSTING OPTIONS:
+- Any web host: Upload all files to public_html or www folder  
+- GitHub Pages: Upload to repository, enable Pages in settings
+- Netlify: Drag this ZIP to netlify.com/drop
+- Vercel: Drag this ZIP to vercel.com
+
+✅ REQUIREMENTS:
+- HTTPS hosting (for camera access)
+- Modern web browser
+- Internet connection (for OCR API)
+
+📱 HOW TO USE:
+1. Visit your hosted URL
+2. Click "📷 Scan Receipt" 
+3. Allow camera access
+4. Point at receipt/paper
+5. App auto-captures and extracts text!
+
+🔧 If auto-detection doesn't work:
+- Press F12 to open console and check logs
+- Use "🧪 Test Any Image" button
+- Try "📸 Capture Now" for manual capture
+
+🎯 Your ScanMarket app is ready to use!
+Visit: your-domain.com after uploading
