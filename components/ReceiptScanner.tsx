@@ -20,41 +20,57 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
   const [error, setError] = useState('');
   const [isAutoScanning, setIsAutoScanning] = useState(false);
 
-  // Fast visual receipt detection
+  // Simple paper detection - detects any white paper-like surface
   const detectReceiptVisually = (canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, video: HTMLVideoElement): boolean => {
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    
-    let whitePixels = 0;
-    let totalPixels = 0;
-    let textLikeRegions = 0;
-    
-    // Sample every 4th pixel for speed
-    for (let i = 0; i < data.length; i += 16) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+    try {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
       
-      // Calculate brightness
-      const brightness = (r + g + b) / 3;
-      totalPixels++;
+      let lightPixels = 0;
+      let totalPixels = 0;
+      let edgePixels = 0;
       
-      // Count white/light pixels (potential receipt background)
-      if (brightness > 200) whitePixels++;
-      
-      // Look for text-like patterns (dark on light)
-      if (brightness < 100 && i > 0) {
-        const prevBrightness = (data[i-16] + data[i-15] + data[i-14]) / 3;
-        if (prevBrightness > 150) textLikeRegions++;
+      // Sample fewer pixels for better performance - every 20th pixel
+      for (let i = 0; i < data.length; i += 80) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        if (r !== undefined && g !== undefined && b !== undefined) {
+          const brightness = (r + g + b) / 3;
+          totalPixels++;
+          
+          // Count light/white pixels (paper-like)
+          if (brightness > 150) lightPixels++;
+          
+          // Look for edges/contrast (text on paper)
+          if (i > 80) {
+            const prevR = data[i - 80];
+            const prevG = data[i - 79];
+            const prevB = data[i - 78];
+            if (prevR !== undefined) {
+              const prevBrightness = (prevR + prevG + prevB) / 3;
+              if (Math.abs(brightness - prevBrightness) > 50) {
+                edgePixels++;
+              }
+            }
+          }
+        }
       }
+      
+      if (totalPixels === 0) return false;
+      
+      const lightRatio = lightPixels / totalPixels;
+      const edgeRatio = edgePixels / totalPixels;
+      
+      // Very lenient detection - any light surface with some contrast
+      console.log('Detection ratios - Light:', lightRatio.toFixed(2), 'Edges:', edgeRatio.toFixed(3));
+      return lightRatio > 0.2 && edgeRatio > 0.01;
+    } catch (error) {
+      console.error('Visual detection error:', error);
+      return false;
     }
-    
-    const whiteRatio = whitePixels / totalPixels;
-    const textDensity = textLikeRegions / totalPixels;
-    
-    // Receipt detection criteria: mostly white background with good text density
-    return whiteRatio > 0.3 && textDensity > 0.02;
   };
 
   // Auto-scan captured image
@@ -185,7 +201,13 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
                 console.log('Strong matches:', strongMatches);
                 console.log('Weak matches:', weakMatches);
                 
-                if (strongMatches.length >= 1 || weakMatches.length >= 2) {
+                // Much more lenient detection - just need some text with numbers
+                const hasNumbers = /\d/.test(text);
+                const hasText = text.length > 10;
+                
+                console.log('Simple detection:', { hasNumbers, hasText, textLength: text.length });
+                
+                if (hasText && hasNumbers) {
                   // Capture high-quality final image
                   context.drawImage(video, 0, 0);
                   const finalBlob = await new Promise<Blob | null>(resolve => {
@@ -263,9 +285,16 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
             statusText.innerText = 'Point camera at receipt - Auto-scanning...';
             
             const manualBtn = document.createElement('button');
-            manualBtn.innerText = 'Manual Capture';
+            manualBtn.innerText = '📸 Capture Now';
             manualBtn.style.cssText = `
               padding: 15px 30px; font-size: 16px; background: #2196F3; 
+              color: white; border: none; border-radius: 8px; margin: 10px; cursor: pointer;
+            `;
+            
+            const testBtn = document.createElement('button');
+            testBtn.innerText = '🧪 Test Any Image';
+            testBtn.style.cssText = `
+              padding: 15px 30px; font-size: 16px; background: #FF9800; 
               color: white; border: none; border-radius: 8px; margin: 10px; cursor: pointer;
             `;
             
@@ -279,6 +308,7 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
             container.appendChild(statusText);
             container.appendChild(video);
             container.appendChild(manualBtn);
+            container.appendChild(testBtn);
             container.appendChild(closeBtn);
             document.body.appendChild(container);
             
@@ -298,8 +328,8 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
                 statusText.innerText = '✅ Receipt-like pattern detected! Analyzing text...';
                 statusText.style.background = 'rgba(76, 175, 80, 0.8)';
                 
-                // Limit OCR calls to prevent overwhelming the API  
-                if (now - lastScanTime >= 2000 && !isProcessing) {
+                // Try OCR more frequently - every 1 second instead of 2
+                if (now - lastScanTime >= 1000 && !isProcessing) {
                   scanCount++;
                   statusText.innerText = `🔍 Reading text... (attempt ${scanCount})`;
                   
@@ -350,6 +380,26 @@ export default function ReceiptScanner({ onItemsExtracted }: ReceiptScannerProps
                     setTimeout(() => {
                       autoScanCapturedImage(url);
                     }, 500);
+                  }
+                });
+              }
+              cleanup();
+            };
+            
+            // Test button - captures and processes ANY image without detection
+            testBtn.onclick = () => {
+              if (context) {
+                context.drawImage(video, 0, 0);
+                canvas.toBlob((blob) => {
+                  if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    setImage(url);
+                    console.log('🧪 Test capture - forcing OCR on any image');
+                    
+                    // Force scan regardless of content
+                    setTimeout(() => {
+                      autoScanCapturedImage(url);
+                    }, 200);
                   }
                 });
               }
